@@ -514,7 +514,7 @@ add_to_path() {
             echo "# Added by nn-cli installer" >> "$shell_config"
             echo "set -gx PATH \$PATH $INSTALL_DIR" >> "$shell_config"
             success "Added to PATH in $shell_config"
-            warning "Please restart your terminal or run: set -gx PATH \$PATH $INSTALL_DIR"
+            info "PATH will be available after restarting terminal or running: set -gx PATH \$PATH $INSTALL_DIR"
         fi
     else
         # Bash/Zsh/Sh syntax
@@ -540,7 +540,7 @@ add_to_path() {
                 echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$shell_config"
             fi
             success "Added to PATH in $shell_config"
-            warning "Please restart your terminal or run: export PATH=\"\$PATH:$INSTALL_DIR\""
+            info "PATH will be available after restarting terminal or sourcing config file"
         fi
     fi
     
@@ -1045,16 +1045,24 @@ main() {
     
     success "Installation completed successfully!"
     
+    # Check if we're running through a pipe (common with curl | bash installation)
+    local is_piped=false
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+        is_piped=true
+        debug "Installation running through pipe (curl/wget)"
+    fi
+    
     # Update current session PATH to make nn available immediately
+    # Note: This only works when script is sourced or run directly, not piped
     if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
         export PATH="$PATH:$INSTALL_DIR"
-        success "Current session PATH updated - nn command is now available!"
         
-        # Provide shell-specific instructions
-        info ""
-        info "[OK] Ready to use! The nn command is available in this session."
-        info ""
-        info "To make nn available in new terminal sessions:"
+        # Check if we're on WSL
+        local is_wsl=false
+        if grep -qEi "(Microsoft|WSL)" /proc/version 2>/dev/null; then
+            is_wsl=true
+            debug "Running on WSL"
+        fi
         
         # Get the shell config file that was updated
         local shell_config_updated=""
@@ -1070,12 +1078,52 @@ main() {
             shell_config_updated="$HOME/.profile"
         fi
         
-        if [ -n "$shell_config_updated" ]; then
-            info "  - Restart your terminal, OR"
-            info "  - Run: source $shell_config_updated"
+        if [ "$is_piped" = true ]; then
+            # When piped, the export doesn't affect parent shell
+            warning "Installation complete but PATH update requires manual action"
+            info ""
+            if [ "$is_wsl" = true ]; then
+                info "[WSL Users] To use nn immediately, run ONE of these commands:"
+                info ""
+                info "  Option 1 - Update current session only:"
+                info "    export PATH=\"\$PATH:$INSTALL_DIR\""
+                info ""
+                info "  Option 2 - Reload your shell configuration:"
+                if [ -n "$shell_config_updated" ]; then
+                    info "    source $shell_config_updated"
+                else
+                    info "    source ~/.bashrc"
+                fi
+                info ""
+                info "  Option 3 - Start a new bash session:"
+                info "    exec bash"
+                info ""
+            else
+                info "To use nn immediately:"
+                info ""
+                info "  - Run: export PATH=\"\$PATH:$INSTALL_DIR\""
+                if [ -n "$shell_config_updated" ]; then
+                    info "  - OR run: source $shell_config_updated"
+                fi
+                info "  - OR restart your terminal"
+            fi
         else
-            info "  - Add this to your shell configuration:"
+            # Running directly (not piped), but still can't update parent shell
+            warning "Installation complete but PATH update requires manual action"
+            info ""
+            info "To use nn immediately, run ONE of these commands:"
+            info ""
+            info "  Option 1 - Update current session only:"
             info "    export PATH=\"\$PATH:$INSTALL_DIR\""
+            info ""
+            info "  Option 2 - Reload your shell configuration:"
+            if [ -n "$shell_config_updated" ]; then
+                info "    source $shell_config_updated"
+            else
+                info "    source ~/.bashrc"
+            fi
+            info ""
+            info "  Option 3 - Start a new terminal session"
         fi
     else
         info ""
@@ -1089,11 +1137,15 @@ main() {
     info ""
     
     # Special note for macOS
-    if [ "$(uname -s)" = "Darwin" ]; then
+    if [ "$(uname -s)" = "Darwin" ] && [ "$is_piped" != true ]; then
         info "macOS Terminal Tips:"
         info "  - iTerm2 users: Just open a new tab or window"
         info "  - Terminal.app users: Restart the application"
-        info "  - If 'nn' command not found: run 'source $shell_config_updated'"
+        local mac_shell_config="$HOME/.zshrc"
+        if [ -f "$HOME/.bash_profile" ]; then
+            mac_shell_config="$HOME/.bash_profile"
+        fi
+        info "  - If 'nn' command not found: run 'source $mac_shell_config'"
     fi
 }
 
