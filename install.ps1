@@ -16,7 +16,7 @@
 .EXAMPLE
     .\install.ps1 -InstallPath "C:\tools\nn-cli" -Force
 .EXAMPLE
-    iex (irm 'https://raw.githubusercontent.com/nn-gdai/nn-cli/main/installers/install.ps1')
+    iex (irm 'https://raw.githubusercontent.com/NovoNordisk-OpenSource/nn-cli-installers/refs/heads/main/install.ps1')
 #>
 
 param(
@@ -624,7 +624,7 @@ EXAMPLES:
     .\install.ps1 -MaxRetries 1 -InjectNetworkFail   # Fast test with 1 retry
 
 REMOTE INSTALLATION:
-    iex (irm 'https://raw.githubusercontent.com/nn-gdai/nn-cli/main/installers/install.ps1')
+    iex (irm 'https://raw.githubusercontent.com/NovoNordisk-OpenSource/nn-cli-installers/refs/heads/main/install.ps1')
 
 AUTHENTICATION:
     Set these environment variables:
