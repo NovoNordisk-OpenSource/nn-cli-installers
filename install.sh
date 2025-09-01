@@ -512,18 +512,18 @@ add_to_path() {
         if ! grep -q "$INSTALL_DIR" "$shell_config"; then
             echo "" >> "$shell_config"
             echo "# Added by nn-cli installer" >> "$shell_config"
-            echo "set -gx PATH $INSTALL_DIR \$PATH" >> "$shell_config"
+            echo "set -gx PATH \$PATH $INSTALL_DIR" >> "$shell_config"
             success "Added to PATH in $shell_config"
-            warning "Please restart your terminal or run: set -gx PATH $INSTALL_DIR \$PATH"
+            warning "Please restart your terminal or run: set -gx PATH \$PATH $INSTALL_DIR"
         fi
     else
         # Bash/Zsh/Sh syntax
         if ! grep -q "$INSTALL_DIR" "$shell_config"; then
             echo "" >> "$shell_config"
             echo "# Added by nn-cli installer" >> "$shell_config"
-            echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$shell_config"
+            echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$shell_config"
             success "Added to PATH in $shell_config"
-            warning "Please restart your terminal or run: export PATH=\"$INSTALL_DIR:\$PATH\""
+            warning "Please restart your terminal or run: export PATH=\"\$PATH:$INSTALL_DIR\""
         fi
     fi
     
@@ -531,8 +531,13 @@ add_to_path() {
     if [ "$(uname -s)" = "Darwin" ]; then
         info "Note for macOS users:"
         info "- The PATH has been added to $shell_config"
-        info "- You may need to restart Terminal.app for changes to take effect"
-        info "- If using iTerm2 or other terminal, ensure it runs as a login shell"
+        if [ "$detected_shell" = "zsh" ]; then
+            info "- For iTerm2: Changes will take effect in new tabs/windows"
+            info "- For Terminal.app: Restart the application"
+        elif [ "$detected_shell" = "bash" ]; then
+            info "- For iTerm2: Ensure 'Login shell' is checked in Preferences > Profiles > General"
+            info "- For Terminal.app: Should work after restart"
+        fi
     fi
 }
 
@@ -986,7 +991,7 @@ main() {
     
     # Update current session PATH to make nn available immediately
     if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
-        export PATH="$INSTALL_DIR:$PATH"
+        export PATH="$PATH:$INSTALL_DIR"
         success "Current session PATH updated - nn command is now available!"
         
         # Provide shell-specific instructions
@@ -1014,7 +1019,7 @@ main() {
             info "  • Run: source $shell_config_updated"
         else
             info "  • Add this to your shell configuration:"
-            info "    export PATH=\"$INSTALL_DIR:\$PATH\""
+            info "    export PATH=\"\$PATH:$INSTALL_DIR\""
         fi
     else
         info ""
@@ -1029,9 +1034,10 @@ main() {
     
     # Special note for macOS
     if [ "$(uname -s)" = "Darwin" ]; then
-        info "macOS Note: If 'nn' is not found after restarting Terminal:"
-        info "  • Check that Terminal runs as a login shell"
-        info "  • Or manually run: export PATH=\"$INSTALL_DIR:\$PATH\""
+        info "macOS Terminal Tips:"
+        info "  • iTerm2 users: Just open a new tab or window"
+        info "  • Terminal.app users: Restart the application"
+        info "  • If 'nn' command not found: run 'source $shell_config_updated'"
     fi
 }
 
