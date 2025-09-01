@@ -411,15 +411,88 @@ check_existing_installation() {
 # Add to PATH
 add_to_path() {
     local shell_config=""
+    local detected_shell=""
     
     # Determine shell config file
     if [ -n "$ZSH_VERSION" ]; then
+        # Running in zsh
         shell_config="$HOME/.zshrc"
+        detected_shell="zsh"
     elif [ -n "$BASH_VERSION" ]; then
+        # Running in bash
         shell_config="$HOME/.bashrc"
+        detected_shell="bash"
     else
-        shell_config="$HOME/.profile"
+        # Not running in bash or zsh, need to detect default shell
+        if [ -n "$SHELL" ]; then
+            case "$SHELL" in
+                */zsh)
+                    shell_config="$HOME/.zshrc"
+                    detected_shell="zsh"
+                    ;;
+                */bash)
+                    shell_config="$HOME/.bashrc"
+                    detected_shell="bash"
+                    ;;
+                */fish)
+                    shell_config="$HOME/.config/fish/config.fish"
+                    detected_shell="fish"
+                    ;;
+                *)
+                    # Default to profile for unknown shells
+                    shell_config="$HOME/.profile"
+                    detected_shell="unknown"
+                    ;;
+            esac
+        else
+            # Last resort: check which files exist (common on macOS)
+            if [ -f "$HOME/.zshrc" ]; then
+                shell_config="$HOME/.zshrc"
+                detected_shell="zsh"
+            elif [ -f "$HOME/.bash_profile" ]; then
+                shell_config="$HOME/.bash_profile"
+                detected_shell="bash"
+            elif [ -f "$HOME/.bashrc" ]; then
+                shell_config="$HOME/.bashrc"
+                detected_shell="bash"
+            else
+                shell_config="$HOME/.profile"
+                detected_shell="profile"
+            fi
+        fi
     fi
+    
+    # Special handling for macOS
+    if [ "$(uname -s)" = "Darwin" ]; then
+        # macOS uses .bash_profile instead of .bashrc for login shells
+        if [ "$detected_shell" = "bash" ] && [ -f "$HOME/.bash_profile" ]; then
+            shell_config="$HOME/.bash_profile"
+        fi
+        # macOS Catalina and later use zsh by default
+        # If no config file exists yet, create the appropriate one
+        if [ ! -f "$shell_config" ]; then
+            # Check the default shell
+            local default_shell=$(dscl . -read /Users/$USER UserShell 2>/dev/null | awk '{print $2}')
+            case "$default_shell" in
+                */zsh)
+                    shell_config="$HOME/.zshrc"
+                    detected_shell="zsh"
+                    ;;
+                */bash)
+                    shell_config="$HOME/.bash_profile"
+                    detected_shell="bash"
+                    ;;
+                *)
+                    # Default to zsh on modern macOS
+                    shell_config="$HOME/.zshrc"
+                    detected_shell="zsh"
+                    ;;
+            esac
+        fi
+    fi
+    
+    debug "Detected shell: $detected_shell"
+    debug "Shell config file: $shell_config"
     
     # Check if already in PATH
     if echo "$PATH" | grep -q "$INSTALL_DIR"; then
@@ -427,8 +500,24 @@ add_to_path() {
         return
     fi
     
+    # Create shell config file if it doesn't exist
+    if [ ! -f "$shell_config" ]; then
+        debug "Creating shell config file: $shell_config"
+        touch "$shell_config"
+    fi
+    
     # Add to shell config
-    if [ -f "$shell_config" ]; then
+    if [ "$detected_shell" = "fish" ]; then
+        # Fish shell has different syntax
+        if ! grep -q "$INSTALL_DIR" "$shell_config"; then
+            echo "" >> "$shell_config"
+            echo "# Added by nn-cli installer" >> "$shell_config"
+            echo "set -gx PATH $INSTALL_DIR \$PATH" >> "$shell_config"
+            success "Added to PATH in $shell_config"
+            warning "Please restart your terminal or run: set -gx PATH $INSTALL_DIR \$PATH"
+        fi
+    else
+        # Bash/Zsh/Sh syntax
         if ! grep -q "$INSTALL_DIR" "$shell_config"; then
             echo "" >> "$shell_config"
             echo "# Added by nn-cli installer" >> "$shell_config"
@@ -436,8 +525,14 @@ add_to_path() {
             success "Added to PATH in $shell_config"
             warning "Please restart your terminal or run: export PATH=\"$INSTALL_DIR:\$PATH\""
         fi
-    else
-        warning "Could not find shell config file. Please add '$INSTALL_DIR' to your PATH manually."
+    fi
+    
+    # Additional instructions for macOS users
+    if [ "$(uname -s)" = "Darwin" ]; then
+        info "Note for macOS users:"
+        info "- The PATH has been added to $shell_config"
+        info "- You may need to restart Terminal.app for changes to take effect"
+        info "- If using iTerm2 or other terminal, ensure it runs as a login shell"
     fi
 }
 
@@ -449,9 +544,14 @@ test_installation() {
         info "Testing installation..."
         if "$binary_path" version >/dev/null 2>&1; then
             success "Installation test passed!"
-            info "Run 'nn --help' to get started"
+            # Show the installed version
+            local installed_version=$("$binary_path" version 2>/dev/null | head -1)
+            if [ -n "$installed_version" ]; then
+                info "Installed: $installed_version"
+            fi
         else
             warning "Installation test failed"
+            debug "Binary exists but 'version' command failed"
         fi
     else
         error "Binary not found or not executable: $binary_path"
@@ -888,15 +988,51 @@ main() {
     if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
         export PATH="$INSTALL_DIR:$PATH"
         success "Current session PATH updated - nn command is now available!"
+        
+        # Provide shell-specific instructions
+        info ""
+        info "✅ Ready to use! The nn command is available in this session."
+        info ""
+        info "To make nn available in new terminal sessions:"
+        
+        # Get the shell config file that was updated
+        local shell_config_updated=""
+        if [ -f "$HOME/.zshrc" ] && grep -q "$INSTALL_DIR" "$HOME/.zshrc" 2>/dev/null; then
+            shell_config_updated="$HOME/.zshrc"
+        elif [ -f "$HOME/.bash_profile" ] && grep -q "$INSTALL_DIR" "$HOME/.bash_profile" 2>/dev/null; then
+            shell_config_updated="$HOME/.bash_profile"
+        elif [ -f "$HOME/.bashrc" ] && grep -q "$INSTALL_DIR" "$HOME/.bashrc" 2>/dev/null; then
+            shell_config_updated="$HOME/.bashrc"
+        elif [ -f "$HOME/.config/fish/config.fish" ] && grep -q "$INSTALL_DIR" "$HOME/.config/fish/config.fish" 2>/dev/null; then
+            shell_config_updated="$HOME/.config/fish/config.fish"
+        elif [ -f "$HOME/.profile" ] && grep -q "$INSTALL_DIR" "$HOME/.profile" 2>/dev/null; then
+            shell_config_updated="$HOME/.profile"
+        fi
+        
+        if [ -n "$shell_config_updated" ]; then
+            info "  • Restart your terminal, OR"
+            info "  • Run: source $shell_config_updated"
+        else
+            info "  • Add this to your shell configuration:"
+            info "    export PATH=\"$INSTALL_DIR:\$PATH\""
+        fi
+    else
+        info ""
+        info "✅ Ready to use! The nn command is already in your PATH."
     fi
     
     info ""
-    info "✅ Ready to use! The nn command is available in this session."
     info "Next steps:"
-    info "1. Run 'nn --help' to see available commands"
-    info "2. Run 'nn init' to initialize your project"
+    info "  1. Run 'nn --help' to see available commands"
+    info "  2. Run 'nn init' to initialize your project"
     info ""
-    info "Note: For new terminal sessions, the PATH is already configured."
+    
+    # Special note for macOS
+    if [ "$(uname -s)" = "Darwin" ]; then
+        info "macOS Note: If 'nn' is not found after restarting Terminal:"
+        info "  • Check that Terminal runs as a login shell"
+        info "  • Or manually run: export PATH=\"$INSTALL_DIR:\$PATH\""
+    fi
 }
 
 # Run main function
