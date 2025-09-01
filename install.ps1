@@ -54,27 +54,27 @@ $ExeName = "nn.exe"
 function Write-Info {
     param([string]$Message)
     if (-not $Quiet) {
-        Write-Information "ℹ️  $Message" -InformationAction Continue
+        Write-Information "[INFO] $Message" -InformationAction Continue
     }
 }
 
 function Write-Success {
     param([string]$Message)
     if (-not $Quiet) {
-        Write-Information "✅ $Message" -InformationAction Continue
+        Write-Information "[OK] $Message" -InformationAction Continue
     }
 }
 
 function Write-Debug-Info {
     param([string]$Message)
     if ($Debug) {
-        Write-Information "🔍 DEBUG: $Message" -InformationAction Continue
+        Write-Information "[DEBUG] $Message" -InformationAction Continue
     }
 }
 
 function Write-Warning-Info {
     param([string]$Message)
-    Write-Warning "⚠️  $Message"
+    Write-Warning "[WARN] $Message"
 }
 
 function Test-Authentication {
@@ -787,7 +787,7 @@ function Main {
     }
 
     Write-Info ""
-    Write-Info "✅ Ready to use! The nn command is available in this session."
+    Write-Info "[OK] Ready to use! The nn command is available in this session."
     Write-Info "Next steps:"
     Write-Info "1. Run 'nn --help' to see available commands"
     Write-Info "2. Run 'nn init' to initialize your project"

@@ -23,7 +23,7 @@ check_requirements() {
     fi
     
     if [ -n "$missing_commands" ]; then
-        echo "❌ Missing required commands:$missing_commands"
+        echo "[ERROR] Missing required commands:$missing_commands"
         echo "Please install the missing commands and try again"
         exit 1
     fi
@@ -698,28 +698,28 @@ parse_arguments() {
 # Enhanced logging functions
 debug() {
     if [ -n "$DEBUG_MODE" ]; then
-        echo "🔍 DEBUG: $1" >&2
+        echo "[DEBUG] $1" >&2
     fi
 }
 
 info() {
     if [ -z "$QUIET_MODE" ]; then
-        echo "ℹ️  $1"
+        echo "[INFO] $1"
     fi
 }
 
 success() {
     if [ -z "$QUIET_MODE" ]; then
-        echo "✅ $1"
+        echo "[OK] $1"
     fi
 }
 
 warning() {
-    echo "⚠️  $1"
+    echo "[WARN] $1"
 }
 
 error() {
-    echo "❌ $1"
+    echo "[ERROR] $1"
 }
 
 # Main installation function
@@ -790,20 +790,51 @@ main() {
     fi
     
     if echo "$release_json" | grep -q '"message".*"Not Found"'; then
-        error "Repository or releases not found."
-        info "This could mean:"
-        info "1. No releases have been published yet"
-        info "2. You don't have access to the repository"
-        info "3. The repository doesn't exist"
+        error "Failed to access repository releases."
         info ""
-        info "Manual installation options:"
-        info "1. Check if you have access to: https://github.com/$REPO_OWNER/$REPO_NAME"
-        info "2. Download binaries directly from the releases page"
-        info "3. Build from source:"
-        info "   git clone https://github.com/$REPO_OWNER/$REPO_NAME.git"
-        info "   cd $REPO_NAME/src"
-        info "   make build"
-        info "   cp ../bin/nn ~/.nn-cli/"
+        if [ -n "$GITHUB_USERNAME" ]; then
+            info "Current authentication: $GITHUB_USERNAME"
+            info ""
+            info "This error usually means:"
+            info "1. Invalid GitHub credentials (wrong username or token)"
+            info "2. Token lacks 'repo' scope for private repositories"
+            info "3. You don't have access to this repository"
+            info ""
+            info "Please verify:"
+            info "- Your GitHub username is correct"
+            info "- Your personal access token is valid"
+            info "- Token has 'repo' scope enabled"
+            info "- You have access to: https://github.com/$REPO_OWNER/$REPO_NAME"
+        else
+            info "No GitHub authentication detected."
+            info ""
+            info "For private repositories, you must set:"
+            info "  export GITHUB_USERNAME=\"your-github-username\""
+            info "  export GITHUB_TOKEN=\"your-personal-access-token\""
+        fi
+        info ""
+        info "To create a new token:"
+        info "1. Go to https://github.com/settings/tokens"
+        info "2. Click 'Generate new token (classic)'"
+        info "3. Select 'repo' scope"
+        info "4. Copy the token and set it as GITHUB_TOKEN"
+        exit 1
+    fi
+    
+    # Check for other authentication errors
+    if echo "$release_json" | grep -q '"message".*"Bad credentials"'; then
+        error "Authentication failed: Bad credentials"
+        info ""
+        info "Your GitHub token is invalid or expired."
+        info "Please generate a new personal access token at:"
+        info "https://github.com/settings/tokens"
+        exit 1
+    fi
+    
+    if echo "$release_json" | grep -q '"message".*"API rate limit exceeded"'; then
+        error "GitHub API rate limit exceeded"
+        info ""
+        info "Please wait a while before trying again, or authenticate with valid credentials."
         exit 1
     fi
     
@@ -811,15 +842,23 @@ main() {
     local tag_name=$(echo "$release_json" | grep '"tag_name"' | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
     
     if [ -z "$tag_name" ]; then
-        error "Could not parse tag name from release"
+        error "Could not parse release information"
         if [ -n "$DEBUG_MODE" ]; then
             debug "Response length: ${#release_json}"
-            debug "Raw response (with printf):"
-            printf "%s\n" "$release_json" | head -c 500
-            debug "Hex dump of first 50 bytes:"
-            printf "%s" "$release_json" | od -A x -t x1z -N 50 || echo "No hex output"
-            debug "Checking for error messages in response:"
-            echo "$release_json" | grep -i "error\|message\|not found" | head -5 || echo "No error messages found"
+            debug "First 500 characters:"
+            echo "$release_json" | head -c 500
+            debug ""
+            debug "Checking for JSON structure:"
+            if echo "$release_json" | head -c 1 | grep -q "{"; then
+                debug "Response appears to be JSON"
+                debug "Looking for tag_name field:"
+                echo "$release_json" | grep -o '"[^"]*"' | grep -C 2 "tag_name" || echo "No tag_name field found"
+            else
+                debug "Response does not appear to be valid JSON"
+            fi
+        else
+            info "This usually indicates a problem with the GitHub API response."
+            info "Run with --debug flag for more information."
         fi
         exit 1
     fi
@@ -996,7 +1035,7 @@ main() {
         
         # Provide shell-specific instructions
         info ""
-        info "✅ Ready to use! The nn command is available in this session."
+        info "[OK] Ready to use! The nn command is available in this session."
         info ""
         info "To make nn available in new terminal sessions:"
         
@@ -1015,15 +1054,15 @@ main() {
         fi
         
         if [ -n "$shell_config_updated" ]; then
-            info "  • Restart your terminal, OR"
-            info "  • Run: source $shell_config_updated"
+            info "  - Restart your terminal, OR"
+            info "  - Run: source $shell_config_updated"
         else
-            info "  • Add this to your shell configuration:"
+            info "  - Add this to your shell configuration:"
             info "    export PATH=\"\$PATH:$INSTALL_DIR\""
         fi
     else
         info ""
-        info "✅ Ready to use! The nn command is already in your PATH."
+        info "[OK] Ready to use! The nn command is already in your PATH."
     fi
     
     info ""
@@ -1035,9 +1074,9 @@ main() {
     # Special note for macOS
     if [ "$(uname -s)" = "Darwin" ]; then
         info "macOS Terminal Tips:"
-        info "  • iTerm2 users: Just open a new tab or window"
-        info "  • Terminal.app users: Restart the application"
-        info "  • If 'nn' command not found: run 'source $shell_config_updated'"
+        info "  - iTerm2 users: Just open a new tab or window"
+        info "  - Terminal.app users: Restart the application"
+        info "  - If 'nn' command not found: run 'source $shell_config_updated'"
     fi
 }
 
