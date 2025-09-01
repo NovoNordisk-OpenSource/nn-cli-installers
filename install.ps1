@@ -125,13 +125,8 @@ function Get-AuthHeaders {
         Write-Warning-Info "TESTING: Using fake credentials to simulate auth failure"
     }
     
-    if (-not $username -or -not $token) {
-        Write-Error "GitHub authentication required for internal repository access."
-        Write-Info "Set these environment variables:"
-        Write-Info "  `$env:GITHUB_USERNAME = 'your-github-username'"
-        Write-Info "  `$env:GITHUB_TOKEN = 'your-personal-access-token'"
-        exit 1
-    }
+    # Note: Authentication check is now done in Get-LatestRelease
+    # This function assumes credentials are available
     
     Write-Info "Using Github authentication for $username"
     $auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${username}:${token}"))
@@ -141,6 +136,7 @@ function Get-AuthHeaders {
         "Authorization"        = "Basic $auth"
         "Accept"               = "application/vnd.github+json"
         "X-Github-Api-Version" = "2022-11-28"
+        "User-Agent"           = "nn-cli-installer/1.0"
     }
 }
 
@@ -148,6 +144,26 @@ function Get-LatestRelease {
     try {
         Write-Info "Fetching latest release information..."
         $apiUrl = "https://api.github.com/repos/$RepoOwner/$RepoName/releases/latest"
+        
+        # Check authentication first
+        $username = $env:GITHUB_USERNAME
+        $token = $env:GITHUB_TOKEN
+        
+        if (-not $username -or -not $token) {
+            Write-Error "GitHub authentication required to access nn-cli releases"
+            Write-Info ""
+            Write-Info "Please set these environment variables before running the installer:"
+            Write-Info "  `$env:GITHUB_USERNAME = 'your-github-username'"
+            Write-Info "  `$env:GITHUB_TOKEN = 'your-personal-access-token'"
+            Write-Info ""
+            Write-Info "Example:"
+            Write-Info "  `$env:GITHUB_USERNAME = 'john.doe'"
+            Write-Info "  `$env:GITHUB_TOKEN = 'ghp_xxxxxxxxxxxxx'"
+            Write-Info ""
+            Write-Info "Then run the installer again."
+            exit 1
+        }
+        
         $headers = Get-AuthHeaders
         
         try {

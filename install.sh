@@ -171,13 +171,8 @@ get_auth_headers() {
         warning "TESTING: Using fake credentials to simulate auth failure"
     fi
     
-    if [ -z "$username" ] || [ -z "$token" ]; then
-        error "GitHub authentication required for internal repository access."
-        info "Set these environment variables:"
-        info "  export GITHUB_USERNAME=\"your-github-username\""
-        info "  export GITHUB_TOKEN=\"your-personal-access-token\""
-        exit 1
-    fi
+    # Note: Authentication check is now done in main() before calling get_latest_release
+    # This function assumes credentials are available
     
     # Create base64 encoded auth string
     # Make sure there are no newlines in the output
@@ -661,10 +656,23 @@ main() {
     # Check existing installation
     local current_version=$(check_existing_installation)
     
-    # Authentication is required and validated in get_auth_headers
-    if [ -n "$GITHUB_USERNAME" ]; then
-        info "Using GitHub authentication for $GITHUB_USERNAME"
+    # Check authentication before attempting to fetch release
+    if [ -z "$GITHUB_USERNAME" ] || [ -z "$GITHUB_TOKEN" ]; then
+        error "GitHub authentication required to access nn-cli releases"
+        info ""
+        info "Please set these environment variables before running the installer:"
+        info "  export GITHUB_USERNAME=\"your-github-username\""
+        info "  export GITHUB_TOKEN=\"your-personal-access-token\""
+        info ""
+        info "Example:"
+        info "  export GITHUB_USERNAME=\"john.doe\""
+        info "  export GITHUB_TOKEN=\"ghp_xxxxxxxxxxxxx\""
+        info ""
+        info "Then run the installer again."
+        exit 1
     fi
+    
+    info "Using GitHub authentication for $GITHUB_USERNAME"
     
     # Get latest release
     info "Fetching latest release information..."
