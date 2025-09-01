@@ -519,9 +519,26 @@ add_to_path() {
     else
         # Bash/Zsh/Sh syntax
         if ! grep -q "$INSTALL_DIR" "$shell_config"; then
-            echo "" >> "$shell_config"
-            echo "# Added by nn-cli installer" >> "$shell_config"
-            echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$shell_config"
+            # For bash on Linux/WSL, also add to .profile for non-interactive shells
+            if [ "$detected_shell" = "bash" ] && [ "$(uname -s)" = "Linux" ]; then
+                # Add to .bashrc for interactive shells
+                echo "" >> "$shell_config"
+                echo "# Added by nn-cli installer" >> "$shell_config"
+                echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$shell_config"
+                
+                # Also add to .profile for login shells
+                if [ ! -f "$HOME/.profile" ] || ! grep -q "$INSTALL_DIR" "$HOME/.profile"; then
+                    echo "" >> "$HOME/.profile"
+                    echo "# Added by nn-cli installer" >> "$HOME/.profile"
+                    echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$HOME/.profile"
+                    info "Also added to ~/.profile for login shells"
+                fi
+            else
+                # For other shells, just add to the config file
+                echo "" >> "$shell_config"
+                echo "# Added by nn-cli installer" >> "$shell_config"
+                echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$shell_config"
+            fi
             success "Added to PATH in $shell_config"
             warning "Please restart your terminal or run: export PATH=\"\$PATH:$INSTALL_DIR\""
         fi
