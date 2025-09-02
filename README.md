@@ -25,7 +25,7 @@ iwr -useb https://raw.githubusercontent.com/NovoNordisk-OpenSource/nn-cli-instal
 
 ```text
 /installers/
-├── /install.ps1            # Windows/Linux/MacOS PowerShell installer
+├── /install.ps1            # Windows/Linux/MacOS pwsh installer
 ├── /install.sh             # Linux/MacOS bash installer
 ├── /CLAUDE.md              # Claude-specific guidelines
 └── /README.md              # This file
