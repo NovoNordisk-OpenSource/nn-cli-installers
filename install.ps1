@@ -115,7 +115,7 @@ function Get-AuthHeaders {
     $username = $env:GITHUB_USERNAME
     $token = $env:GITHUB_TOKEN
     
-    Write-Debug-Info "Getting auth headers for user: $($username ?? '<not set>')"
+    Write-Debug-Info "Getting auth headers for user: $(if ($username) { $username } else { '<not set>' })"
     
     # Inject authentication failure for testing
     if ($InjectAuthFail) {
