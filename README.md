@@ -27,11 +27,15 @@ Cross-platform installation scripts for NN CLI.
 
 ## Quick Install
 
-```bash
-# Unix/Linux/macOS
-curl -sSL https://raw.githubusercontent.com/NovoNordisk-OpenSource/nn-cli-installers/refs/heads/main/install.sh | bash
+### Linux/MacOS
 
-# Windows PowerShell
+```bash
+curl -sSL https://raw.githubusercontent.com/NovoNordisk-OpenSource/nn-cli-installers/refs/heads/main/install.sh | bash
+```
+
+### Windows/Linux/MacOS PowerShell
+
+```powershell
 iwr -useb https://raw.githubusercontent.com/NovoNordisk-OpenSource/nn-cli-installers/refs/heads/main/install.ps1 | iex
 ```
 
