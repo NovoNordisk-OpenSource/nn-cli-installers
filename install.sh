@@ -787,7 +787,7 @@ main() {
         info "  export GITHUB_TOKEN=\"your-personal-access-token\""
         info ""
         info "Example:"
-        info "  export GITHUB_USERNAME=\"john.doe\""
+        info "  export GITHUB_USERNAME=\"XYZZ_nngithub\""
         info "  export GITHUB_TOKEN=\"ghp_xxxxxxxxxxxxx\""
         info ""
         info "Then run the installer again."

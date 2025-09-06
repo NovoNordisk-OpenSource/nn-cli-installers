@@ -157,7 +157,7 @@ function Get-LatestRelease {
             Write-Info "  `$env:GITHUB_TOKEN = 'your-personal-access-token'"
             Write-Info ""
             Write-Info "Example:"
-            Write-Info "  `$env:GITHUB_USERNAME = 'john.doe'"
+            Write-Info "  `$env:GITHUB_USERNAME = 'XYZZ_nngithub'"
             Write-Info "  `$env:GITHUB_TOKEN = 'ghp_xxxxxxxxxxxxx'"
             Write-Info ""
             Write-Info "Then run the installer again."
